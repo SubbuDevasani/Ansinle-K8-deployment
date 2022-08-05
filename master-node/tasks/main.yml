@@ -1,0 +1,31 @@
+---
+# tasks file for master-node
+#
+- hosts: all
+  become: yes
+  tasks:
+
+   - name: "update hostnames"
+     hostname:
+       name: k8-master
+   
+   - name: initialize the cluster
+     shell: 
+         kubeadm init --pod-network-cidr=192.168.0.0/16
+         export KUBECONFIG=/etc/kubernetes/admin.conf
+   
+   - name: create .kube directory
+     file:
+       path: $HOME/.kube
+       state: directory
+       mode: 0755
+   
+   - name: copy admin.conf to user's kube config
+     copy:
+       src: /etc/kubernetes/admin.conf
+       dest: /home/ubuntu/.kube/config
+       remote_src: yes
+   
+   - name: install Pod network
+     shell: kubectl apply -f https://projectcalico.docs.tigera.io/manifests/tigera-operator.yaml
+ 

@@ -1,0 +1,85 @@
+---
+# tasks file for prerequsites
+#
+- hosts: all
+  become: yes
+  tasks:
+   - name: install containerd
+     command: sudo apt-get update 
+
+   - name: Installing Prerequisites for Kubernetes
+     apt: 
+       name:
+         - apt-transport-https
+         - ca-certificates
+         - curl
+         - gnupg
+         - lsb-release
+       state: present
+   
+   - name: Install Docker Engine.
+     apt: 
+       name:
+         - docker-io
+       state: present
+   
+   - name: Enable service docker and not touch the running state
+     service:
+       name: docker
+       enabled: yes
+   
+   - name: Start service docker, if not running
+     notify: start docker
+   
+   - name: install containerd
+     command: modprobe br_netfilter
+   
+   - name: add network bridge for k8s
+     template:
+       src: templates/k8s.j2
+       dest: /etc/sysctl.d/k8s.conf
+       owner: root
+       group: root
+   
+   - name: enable above config
+     command: sysctl --system
+   
+   - name: disable swap
+     command: swapoff -a
+   
+   - name: install and configure dependencies
+     command: 
+             curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+             echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | tee /etc/apt/sources.list.d/kubernetes.list
+   
+   - name: install kubernetes
+     command:
+              sudo apt-get update
+              sudo apt-get install -y kubelet=1.23.5-00 kubectl=1.23.5-00 kubeadm=1.23.5-00 
+   
+   - name: Enable service kubelet and not touch the running state
+     service:
+       name: kubelet
+       enabled: yes
+   
+   
+   - name: install kubernetes
+     command:
+              kubeadm config images pull
+   
+   - name: change cgroupfs to systemd and data-root to new directory
+     template:
+       src: templates/daemon.j2
+       dest: /etc/docker/daemon.json
+       owner: root
+       group: root
+   
+   - name: Enable service docker and not touch the running state
+     service:
+       name: docker
+       enabled: yes
+   
+   - name: reload and restart Docker
+     notify: 
+            Restart docker
+            Reload docker
